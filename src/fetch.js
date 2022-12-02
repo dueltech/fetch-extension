@@ -3,7 +3,7 @@ import {isServerErrorCode} from '#src/httpCodes';
 import * as httpMethods from '#src/httpMethods';
 import {assign, checkType, countOf, defineProperties, ms, sleep} from '#src/util';
 
-export const duelFetch = async (url, options) => {
+export async function duelFetch(url, options) {
 
     const extensions = options?.extensions;
 
@@ -14,7 +14,7 @@ export const duelFetch = async (url, options) => {
     const request = new DuelFetch([url, options], extensions);
 
     return request.fetch();
-};
+}
 
 export class DuelFetch {
 

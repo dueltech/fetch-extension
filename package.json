@@ -1,5 +1,7 @@
 {
     "name": "@dueltech/fetch",
+    "version": "0.0.1",
+    "description": "fetch() extension",
     "scripts": {
         "lint": "eslint --fix .",
         "test": "mocha test/test.js"
@@ -22,7 +24,7 @@
         "express": "~4.18.2",
         "mocha": "~10.1.0"
     },
-    "main": "./index.js",
+    "main": "index.js",
     "imports": {
         "#src/*": "./src/*.js"
     }
