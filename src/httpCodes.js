@@ -1,6 +1,4 @@
 /*
- * HTTP status codes
- *
  * Status ranges:
  * https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
  */

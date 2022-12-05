@@ -76,17 +76,19 @@ describe('duelFetch()', () => {
                     .to.eql(expected.json);
             }
 
-            // Extensions.
-            expect(response.stats.runs.length - 1)
+            // Extension.
+            const {stats} = response.extension;
+
+            expect(stats.runs.length - 1)
                 .to.equal(expected.retrys?.count || 0);
 
             if (! isNil(expected.retrys?.fail)) {
-                expect(response.stats.lastRun.failed)
+                expect(stats.lastRun.failed)
                     .to.equal(expected.retrys.fail);
             }
 
             if (expected.failMessage) {
-                expect(response.stats.failMessage)
+                expect(stats.failMessage)
                     .to.equal(expected.failMessage);
             }
         }
@@ -96,10 +98,12 @@ describe('duelFetch()', () => {
 
         let stats;
         const timeout = 100;
-        const url = context.testRequestURL({delay: timeout * 2});
+        const url = context.testRequestURL({
+            delay: timeout * 2,
+        });
 
         const request = () => duelFetch(url, {
-            extensions: {
+            extension: {
                 timeout,
                 retry: {
                     limit: 2,
@@ -117,7 +121,43 @@ describe('duelFetch()', () => {
         expect(stats.runs.length)
             .to.equal(3);
         expect(stats.failMessage)
-            .to.equal('Failed with AbortError after 3 attempts');
+            .to.equal('Failed with AbortError (Timeout) after 3 attempts');
+    });
+
+    it('should have retry behaviour nullified by user-specified abort controller', async () => {
+
+        let stats;
+        const timeout = 100;
+        const url = context.testRequestURL({
+            delay: timeout * 2,
+        });
+
+        const controller = new AbortController();
+
+        setTimeout(() => {
+            controller.abort('User-specified');
+        }, timeout);
+
+        const request = () => duelFetch(url, {
+            signal: controller.signal,
+            extension: {
+                retry: {
+                    limit: 2,
+                    delay: 0,
+                },
+                onComplete(runStats) {
+                    stats = runStats;
+                },
+            },
+        });
+
+        await expect(request())
+            .to.be.rejected;
+
+        expect(stats.runs.length)
+            .to.equal(1);
+        expect(stats.failMessage)
+            .to.equal('Failed with AbortError (User-specified) after 1 attempt');
     });
 
     it('should handle broken request inputs as native fetch except for extension behaviour', async () => {
@@ -125,7 +165,7 @@ describe('duelFetch()', () => {
         let stats;
 
         await expect(duelFetch('https://localhost-must-not-exist.com', {
-                extensions: {
+                extension: {
                     retry: {
                         limit: 3,
                         delay: 0,
@@ -144,7 +184,7 @@ describe('duelFetch()', () => {
     });
 });
 
-describe('DuelFetch.bodyData()', () => {
+describe('DuelFetch.bodyData() / response.extension.body()', () => {
 
     it('should resolve resolve body data', async () => {
 
@@ -161,10 +201,18 @@ describe('DuelFetch.bodyData()', () => {
 
         for (const [input, expected] of samples) {
 
-            const response = await
-                duelFetch(context.testRequestURL(input));
+            const url = context.testRequestURL(input);
 
-            expect(await DuelFetch.bodyData(response))
+            let response = await
+                duelFetch(url);
+
+            expect(await DuelFetch.body(response))
+                .to.equal(expected);
+
+            response = await
+                duelFetch(url);
+
+            expect(await response.extension.body())
                 .to.equal(expected);
         }
     });

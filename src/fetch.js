@@ -1,17 +1,18 @@
 import {defaults, isEmpty, sum} from 'lodash-es';
 import {isServerErrorCode} from '#src/httpCodes';
 import * as httpMethods from '#src/httpMethods';
+import * as mimeTypes from '#src/mimeTypes';
 import {assign, checkType, countOf, defineProperties, ms, sleep} from '#src/util';
 
 export async function duelFetch(url, options) {
 
-    const extensions = options?.extensions;
+    const extension = options?.extension;
 
-    if (extensions) {
-        delete options.extensions;
+    if (extension) {
+        delete options.extension;
     }
 
-    const request = new DuelFetch([url, options], extensions);
+    const request = new DuelFetch([url, options], extension);
 
     return request.fetch();
 }
@@ -23,7 +24,7 @@ export class DuelFetch {
         const defaultExtension = {
             retry: {
                 limit: 1,
-                delay: '100ms',
+                delay: '100 ms',
                 methods: [
                     httpMethods.DELETE,
                     httpMethods.GET,
@@ -43,7 +44,7 @@ export class DuelFetch {
         if (extension.timeout) {
             extension.timeout = ms(extension.timeout);
             if (fetchArgs.signal) {
-                throw new TypeError('extension.timeout cannot be used with fetch.signal');
+                throw new TypeError('extension.timeout cannot be used with options.signal');
             }
         }
 
@@ -68,11 +69,7 @@ export class DuelFetch {
             }
 
             const startTime = Date.now();
-            run = {
-                get failed() {
-                    return Boolean(this.error || this.retryable);
-                },
-            };
+            run = {};
 
             try {
                 const [fetchURL] = this.fetchArgs;
@@ -92,8 +89,17 @@ export class DuelFetch {
                 await this.#evaluate(run, error);
             }
 
-            run.time = Date.now() - startTime;
-            runs.push(run);
+            runs.push(defineProperties(run, {
+                time: {
+                    enumerable: true,
+                    value: Date.now() - startTime,
+                },
+                failed: {
+                    get() {
+                        return Boolean(this.error || this.retryable);
+                    },
+                },
+            }));
         }
         while (run.retryable && runs.length < runLimit);
 
@@ -109,13 +115,11 @@ export class DuelFetch {
     #augmentResponse(runs) {
 
         return defineProperties(this.response, {
-            bodyData: {
-                value() {
-                    return DuelFetch.bodyData(this);
+            extension: {
+                value: {
+                    body: () => DuelFetch.body(this.response),
+                    stats: this.#stats(runs),
                 },
-            },
-            stats: {
-                value: this.#stats(runs),
             },
         });
     }
@@ -170,8 +174,18 @@ export class DuelFetch {
         }
 
         if (error) {
-            if (error.name === 'AbortError' && extension.timeout) {
-                run.retryable = true;
+            if (DuelFetch.#isAbortError(error)) {
+                if (extension.timeout) {
+                    run.retryable = true;
+                    error.reason = 'Timeout';
+                }
+                else {
+                    /*
+                     * Throw from user-specified AbortController
+                     * overrides extension retry behaviour.
+                     */
+                    error.reason = this.fetchArgs[1]?.signal?.reason;
+                }
             }
             else {
                 const networkErrorCodes = [
@@ -195,28 +209,36 @@ export class DuelFetch {
         }
     }
 
-    static async bodyData(response) {
+    /*
+     * Infer body parser based on content-type.
+     */
+    static async body(response) {
 
         checkType(response, Response);
 
         const responseType = response.headers
             .get('content-type') || '';
 
-        return responseType.includes('application/json')
+        return responseType.includes(mimeTypes.json)
             ? response.json()
             : response.text();
     }
 
     static #errorCode(error) {
-        return error.cause?.code || error.code;
+        return (error.cause || error).code;
     }
 
     static #errorSummary(error) {
 
-        const name = error.cause?.name || error.name;
+        const subject = error.cause || error;
+        const {name, reason} = subject;
 
-        return (name === 'AbortError')
-            ? name
-            : `${name} (${DuelFetch.#errorCode(error)})`;
+        return DuelFetch.#isAbortError(subject)
+            ? `${name} (${reason})`
+            : `${name} (${DuelFetch.#errorCode(subject)})`;
+    }
+
+    static #isAbortError(error) {
+        return (error instanceof Error) && error.name === 'AbortError';
     }
 }

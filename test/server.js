@@ -1,4 +1,5 @@
 import express from 'express';
+import * as mimeTypes from '#src/mimeTypes';
 import {sleep} from '#src/util';
 
 const port = process.env.PORT || 8080;
@@ -29,14 +30,14 @@ app.get('/request', async (req, res) => {
     }
 
     if (json) {
-        res.set('content-type', 'application/json');
+        res.set('content-type', mimeTypes.json);
     }
 
     res.status(parseInt(status, 10));
     res.send(text || json);
 });
 
-export default await new Promise((resolve, reject) => {
+export default new Promise((resolve, reject) => {
 
     const origin = `http://localhost:${port}`;
 

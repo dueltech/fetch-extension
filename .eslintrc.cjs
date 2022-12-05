@@ -1,8 +1,7 @@
-module.exports = {
+const self = module.exports = {
     env: {
         node: true,
         es2022: true,
-        mocha: true,
     },
     parserOptions: {
         ecmaVersion: 'latest',
@@ -197,6 +196,32 @@ module.exports = {
     globals: {
         Request: 'readonly',
         Response: 'readonly',
-        expect: 'readonly',
     },
 };
+
+self.overrides = [{
+    env: {
+        mocha: true,
+    },
+    files: [
+        'test/test.js',
+    ],
+    extends: [
+        'plugin:mocha/recommended',
+    ],
+    globals: {
+        expect: 'readonly',
+    },
+    rules: {
+        'mocha/max-top-level-suites': 0,
+        'mocha/no-mocha-arrows': 0,
+        'mocha/no-return-from-async': 2,
+        'mocha/no-setup-in-describe': 0,
+        'mocha/no-skipped-tests': 0,
+        'mocha/no-top-level-hooks': 0,
+        'mocha/prefer-arrow-callback': 2,
+        'mocha/valid-test-description': 2,
+        'no-unused-expressions': 0,
+        'prefer-arrow-callback': 0,
+    },
+}];
