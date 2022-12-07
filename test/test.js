@@ -1,8 +1,8 @@
 import chai, {expect} from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import {isNil} from 'lodash-es';
+import {duelFetch, Response} from '../index.js';
 import testServer from './server.js';
-import {duelFetch, DuelFetch} from '#src/fetch';
 
 chai.use(chaiAsPromised);
 
@@ -180,13 +180,13 @@ describe('duelFetch()', () => {
         expect(stats.runs.length)
             .to.equal(4);
         expect(stats.failMessage)
-            .to.equal('Failed with Error (ENOTFOUND) after 4 attempts');
+            .to.equal('Failed with FetchError (ENOTFOUND) after 4 attempts');
     });
 });
 
-describe('DuelFetch.bodyData() / response.extension.body()', () => {
+describe('response.extension.body()', () => {
 
-    it('should resolve resolve body data', async () => {
+    it('should infer and execute body parser', async () => {
 
         const samples = [
             [
@@ -203,13 +203,7 @@ describe('DuelFetch.bodyData() / response.extension.body()', () => {
 
             const url = context.testRequestURL(input);
 
-            let response = await
-                duelFetch(url);
-
-            expect(await DuelFetch.body(response))
-                .to.equal(expected);
-
-            response = await
+            const response = await
                 duelFetch(url);
 
             expect(await response.extension.body())

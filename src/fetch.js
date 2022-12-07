@@ -2,7 +2,8 @@ import {defaults, isEmpty, sum} from 'lodash-es';
 import {isServerErrorCode} from '#src/httpCodes';
 import * as httpMethods from '#src/httpMethods';
 import * as mimeTypes from '#src/mimeTypes';
-import {assign, checkType, countOf, defineProperties, ms, sleep} from '#src/util';
+import {fetch, Request} from '#src/native';
+import {assign, countOf, defineProperties, ms, sleep} from '#src/util';
 
 export async function duelFetch(url, options) {
 
@@ -17,7 +18,7 @@ export async function duelFetch(url, options) {
     return request.fetch();
 }
 
-export class DuelFetch {
+class DuelFetch {
 
     constructor(fetchArgs, extension={}) {
 
@@ -117,8 +118,19 @@ export class DuelFetch {
         return defineProperties(this.response, {
             extension: {
                 value: {
-                    body: () => DuelFetch.body(this.response),
                     stats: this.#stats(runs),
+                    /*
+                     * Infer body parser based on content-type.
+                     */
+                    body: async () => {
+
+                        const type = this.response.headers
+                            .get('content-type') || '';
+
+                        return type.includes(mimeTypes.json)
+                            ? this.response.json()
+                            : this.response.text();
+                    },
                 },
             },
         });
@@ -207,21 +219,6 @@ export class DuelFetch {
             run.retryable = retryConfig.methods.includes(this.request.method)
                 && isServerErrorCode(this.response.status);
         }
-    }
-
-    /*
-     * Infer body parser based on content-type.
-     */
-    static async body(response) {
-
-        checkType(response, Response);
-
-        const responseType = response.headers
-            .get('content-type') || '';
-
-        return responseType.includes(mimeTypes.json)
-            ? response.json()
-            : response.text();
     }
 
     static #errorCode(error) {

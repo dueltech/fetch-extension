@@ -18,9 +18,3 @@ export const countOf = (it, subject='item') => {
 
     return `${count} ${subject}${plural}`;
 };
-
-export const checkType = (it, constructor) => {
-    if (! (it instanceof constructor)) {
-        throw new TypeError(`Expected instance of ${constructor.name}`);
-    }
-};

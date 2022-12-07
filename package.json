@@ -12,6 +12,7 @@
     "type": "module",
     "dependencies": {
         "lodash-es": "~4.17.21",
+        "node-fetch": "~3.3.0",
         "space-time": "~1.0.1"
     },
     "devDependencies": {

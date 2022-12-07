@@ -193,10 +193,6 @@ const self = module.exports = {
 
         yoda: 2,
     },
-    globals: {
-        Request: 'readonly',
-        Response: 'readonly',
-    },
 };
 
 self.overrides = [{
