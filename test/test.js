@@ -1,3 +1,4 @@
+import agentKeepAlive from 'agentkeepalive';
 import chai, {expect} from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import {isNil} from 'lodash-es';
@@ -181,6 +182,45 @@ describe('duelFetch()', () => {
             .to.equal(4);
         expect(stats.failMessage)
             .to.equal('Failed with FetchError (ENOTFOUND) after 4 attempts');
+    });
+
+    it('should accept a custom agent as supported by node-fetch', async () => {
+
+        const agents = {
+            http: new agentKeepAlive(),
+            https: new agentKeepAlive
+                .HttpsAgent(),
+        };
+
+        const agentResolver = url => (url.protocol === 'https:')
+            ? agents.https
+            : agents.http;
+
+        const url = context
+            .testRequestURL();
+
+        const fetches = Array(5)
+            .fill()
+            .map(() => duelFetch(url, {
+                extension: {
+                    agent: agentResolver,
+                },
+            }));
+
+        await Promise.all(fetches);
+
+        expect(agents.http.getCurrentStatus())
+            .to.eql({
+                closeSocketCount: 0,
+                createSocketCount: 5,
+                createSocketErrorCount: 0,
+                errorSocketCount: 0,
+                freeSockets: {'localhost:8080:': 5},
+                requestCount: 5,
+                requests: {},
+                sockets: {},
+                timeoutSocketCount: 0,
+            });
     });
 });
 

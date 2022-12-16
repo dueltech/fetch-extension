@@ -79,6 +79,9 @@ class DuelFetch {
                     ...(extension.timeout && {
                         signal: AbortSignal.timeout(extension.timeout),
                     }),
+                    ...(extension.agent && {
+                        agent: extension.agent,
+                    }),
                 };
 
                 this.request = new Request(fetchURL, fetchOpts);
@@ -202,13 +205,14 @@ class DuelFetch {
             else {
                 const networkErrorCodes = [
                     // Source: https://github.com/sindresorhus/got/blob/main/documentation/7-retry.md
-                    'ECONNRESET', // The connection was forcibly closed.
                     'EADDRINUSE', // Could not bind to any free port.
-                    'ECONNREFUSED', // The connection was refused by the server.
-                    'EPIPE', // The remote side of the stream being written has been closed.
-                    'ENOTFOUND', // Could not resolve the hostname to an IP address.
-                    'ENETUNREACH', // No internet connection.
                     'EAI_AGAIN', // DNS lookup timed out.
+                    'ECONNREFUSED', // The connection was refused by the server.
+                    'ECONNRESET', // The connection was forcibly closed.
+                    'ENETUNREACH', // No internet connection.
+                    'ENOTFOUND', // Could not resolve the hostname to an IP address.
+                    'EPIPE', // The remote side of the stream being written has been closed.
+                    'ETIMEDOUT', // A connect or send request timeout.
                 ];
 
                 run.retryable = networkErrorCodes
