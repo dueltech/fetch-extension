@@ -2,7 +2,7 @@ import agentKeepAlive from 'agentkeepalive';
 import chai, {expect} from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import {isNil} from 'lodash-es';
-import {duelFetch, Response} from '../index.js';
+import {fetchEx, Response} from '../index.js';
 import testServer from './server.js';
 
 chai.use(chaiAsPromised);
@@ -16,7 +16,7 @@ before(async () => {
 
 after(() => context.server.close());
 
-describe('duelFetch()', () => {
+describe('fetchEx()', () => {
 
     it('should handle different request inputs as native fetch except for extension behaviour', async () => {
 
@@ -49,7 +49,7 @@ describe('duelFetch()', () => {
                         count: 1,
                         fail: true,
                     },
-                    failMessage: 'Failed with status 500 after 2 attempts',
+                    failMessage: 'failed with status 500 after 2 attempts',
                 },
             ],
         ];
@@ -59,7 +59,7 @@ describe('duelFetch()', () => {
             const url = context.testRequestURL(input);
 
             const response = await
-                duelFetch(url);
+                fetchEx(url);
 
             expect(response)
                 .to.be.instanceOf(Response);
@@ -89,8 +89,8 @@ describe('duelFetch()', () => {
             }
 
             if (expected.failMessage) {
-                expect(stats.failMessage)
-                    .to.equal(expected.failMessage);
+                expect(stats.fail)
+                    .to.include(expected.failMessage);
             }
         }
     });
@@ -103,7 +103,7 @@ describe('duelFetch()', () => {
             delay: timeout * 2,
         });
 
-        const request = () => duelFetch(url, {
+        const request = () => fetchEx(url, {
             extension: {
                 timeout,
                 retry: {
@@ -113,6 +113,10 @@ describe('duelFetch()', () => {
                 onComplete(runStats) {
                     stats = runStats;
                 },
+                log: {
+                    // eslint-disable-next-line no-console
+                    fail: console.error,
+                },
             },
         });
 
@@ -121,8 +125,8 @@ describe('duelFetch()', () => {
 
         expect(stats.runs.length)
             .to.equal(3);
-        expect(stats.failMessage)
-            .to.equal('Failed with AbortError (Timeout) after 3 attempts');
+        expect(stats.fail)
+            .to.include('failed with AbortError (Timeout) after 3 attempts');
     });
 
     it('should have retry behaviour nullified by user-specified abort controller', async () => {
@@ -139,7 +143,7 @@ describe('duelFetch()', () => {
             controller.abort('User-specified');
         }, timeout);
 
-        const request = () => duelFetch(url, {
+        const request = () => fetchEx(url, {
             signal: controller.signal,
             extension: {
                 retry: {
@@ -157,15 +161,15 @@ describe('duelFetch()', () => {
 
         expect(stats.runs.length)
             .to.equal(1);
-        expect(stats.failMessage)
-            .to.equal('Failed with AbortError (User-specified) after 1 attempt');
+        expect(stats.fail)
+            .to.include('failed with AbortError (User-specified) after 1 attempt');
     });
 
     it('should handle broken request inputs as native fetch except for extension behaviour', async () => {
 
         let stats;
 
-        await expect(duelFetch('https://localhost-must-not-exist.com', {
+        await expect(fetchEx('https://localhost-must-not-exist.com', {
                 extension: {
                     retry: {
                         limit: 3,
@@ -180,8 +184,8 @@ describe('duelFetch()', () => {
 
         expect(stats.runs.length)
             .to.equal(4);
-        expect(stats.failMessage)
-            .to.equal('Failed with FetchError (ENOTFOUND) after 4 attempts');
+        expect(stats.fail)
+            .to.include('failed with FetchError (ENOTFOUND) after 4 attempts');
     });
 
     it('should accept a custom agent as supported by node-fetch', async () => {
@@ -201,9 +205,13 @@ describe('duelFetch()', () => {
 
         const fetches = Array(5)
             .fill()
-            .map(() => duelFetch(url, {
+            .map(() => fetchEx(url, {
                 extension: {
                     agent: agentResolver,
+                    log: {
+                        // eslint-disable-next-line no-console
+                        ok: console.log,
+                    },
                 },
             }));
 
@@ -244,7 +252,7 @@ describe('response.extension.body()', () => {
             const url = context.testRequestURL(input);
 
             const response = await
-                duelFetch(url);
+                fetchEx(url);
 
             expect(await response.extension.body())
                 .to.equal(expected);

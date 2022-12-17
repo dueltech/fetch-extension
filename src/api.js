@@ -1,11 +1,11 @@
-import {defaults, isEmpty, sum} from 'lodash-es';
+import {defaults, isEmpty, isFunction, sum} from 'lodash-es';
+import {fetch, Request} from '#src/api.native';
 import {isServerErrorCode} from '#src/httpCodes';
 import * as httpMethods from '#src/httpMethods';
 import * as mimeTypes from '#src/mimeTypes';
-import {fetch, Request} from '#src/native';
 import {assign, countOf, defineProperties, ms, sleep} from '#src/util';
 
-export async function duelFetch(url, options) {
+export async function fetchEx(url, options) {
 
     const extension = options?.extension;
 
@@ -13,19 +13,19 @@ export async function duelFetch(url, options) {
         delete options.extension;
     }
 
-    const request = new DuelFetch([url, options], extension);
+    const request = new FetchEx([url, options], extension);
 
     return request.fetch();
 }
 
-class DuelFetch {
+class FetchEx {
 
     constructor(fetchArgs, extension={}) {
 
         const defaultExtension = {
             retry: {
-                limit: 1,
                 delay: '100 ms',
+                limit: 1,
                 methods: [
                     httpMethods.DELETE,
                     httpMethods.GET,
@@ -107,7 +107,15 @@ class DuelFetch {
         }
         while (run.retryable && runs.length < runLimit);
 
-        this.extension?.onComplete?.(this.#stats(runs));
+        const stats = this.#stats(runs);
+
+        extension.onComplete?.(stats);
+
+        for (const status of ['fail', 'ok', 'warn']) {
+            if (stats[status] && isFunction(extension.log?.[status])) {
+                extension.log[status](stats[status]);
+            }
+        }
 
         if (run.error) {
             throw run.error;
@@ -152,21 +160,26 @@ class DuelFetch {
         stats.maxFetchTime = Math.max(...timings);
         stats.lastRun = runs.at(-1);
 
+        const prefix = `Fetch of '${this.request.url}' `;
+
         if (stats.lastRun.failed) {
             const {error} = stats.lastRun;
-            stats.failMessage = (error
-                ? `Failed with ${DuelFetch.#errorSummary(error)}`
-                : `Failed with status ${stats.lastRun.status}`)
+            stats.fail = prefix + (error
+                ? `failed with ${FetchEx.#errorSummary(error)}`
+                : `failed with status ${stats.lastRun.status}`)
                 + ` after ${countOf(runs, 'attempt')}`;
         }
         else if (stats.runs.length > 1) {
             const failedAttempts = stats.runs
                 .filter(it => it.failed)
                 .map(it => it.error
-                    ? DuelFetch.#errorSummary(it.error)
+                    ? FetchEx.#errorSummary(it.error)
                     : `${it.status}`)
                 .join(', ');
-            stats.warnMessage = `Required ${countOf(stats.runs, 'attempt')} (${failedAttempts})`;
+            stats.warn = `${prefix}required ${countOf(stats.runs, 'attempt')} (${failedAttempts})`;
+        }
+        else {
+            stats.ok = `${prefix}was OK`;
         }
 
         return stats;
@@ -189,7 +202,7 @@ class DuelFetch {
         }
 
         if (error) {
-            if (DuelFetch.#isAbortError(error)) {
+            if (FetchEx.#isAbortError(error)) {
                 if (extension.timeout) {
                     run.retryable = true;
                     error.reason = 'Timeout';
@@ -216,7 +229,7 @@ class DuelFetch {
                 ];
 
                 run.retryable = networkErrorCodes
-                    .includes(DuelFetch.#errorCode(error));
+                    .includes(FetchEx.#errorCode(error));
             }
         }
         else {
@@ -234,9 +247,9 @@ class DuelFetch {
         const subject = error.cause || error;
         const {name, reason} = subject;
 
-        return DuelFetch.#isAbortError(subject)
+        return FetchEx.#isAbortError(subject)
             ? `${name} (${reason})`
-            : `${name} (${DuelFetch.#errorCode(subject)})`;
+            : `${name} (${FetchEx.#errorCode(subject)})`;
     }
 
     static #isAbortError(error) {
