@@ -42,9 +42,11 @@ class FetchEx {
             defaults(v, defaultExtension[k]);
         }
 
+        fetchArgs[1] ||= {};
+
         if (extension.timeout) {
             extension.timeout = ms(extension.timeout);
-            if (fetchArgs.signal) {
+            if (fetchArgs[1].signal) {
                 throw new TypeError('extension.timeout cannot be used with options.signal');
             }
         }
@@ -73,12 +75,17 @@ class FetchEx {
             run = {};
 
             try {
+                if (extension.timeout) {
+                    const controller = new AbortController();
+                    this.fetchArgs[1].signal = controller.signal;
+                    run.timeout = setTimeout(() => {
+                        controller.abort(`Timeout <${extension.timeout} ms>`);
+                    }, extension.timeout);
+                }
+
                 const [fetchURL] = this.fetchArgs;
                 const fetchOpts = {
                     ...this.fetchArgs[1],
-                    ...(extension.timeout && {
-                        signal: AbortSignal.timeout(extension.timeout),
-                    }),
                     ...(extension.agent && {
                         agent: extension.agent,
                     }),
@@ -91,6 +98,12 @@ class FetchEx {
             }
             catch (error) {
                 await this.#evaluate(run, error);
+            }
+            finally {
+                if (run.timeout) {
+                    clearTimeout(run.timeout);
+                    delete run.timeout;
+                }
             }
 
             runs.push(defineProperties(run, {
@@ -205,15 +218,14 @@ class FetchEx {
             if (FetchEx.#isAbortError(error)) {
                 if (extension.timeout) {
                     run.retryable = true;
-                    error.reason = 'Timeout';
                 }
                 else {
                     /*
                      * Throw from user-specified AbortController
                      * overrides extension retry behaviour.
                      */
-                    error.reason = this.fetchArgs[1]?.signal?.reason;
                 }
+                error.reason = this.fetchArgs[1].signal.reason;
             }
             else {
                 const networkErrorCodes = [

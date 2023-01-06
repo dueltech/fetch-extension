@@ -126,7 +126,7 @@ describe('fetchEx()', () => {
         expect(stats.runs.length)
             .to.equal(3);
         expect(stats.fail)
-            .to.include('failed with AbortError (Timeout) after 3 attempts');
+            .to.include('failed with AbortError (Timeout <100 ms>) after 3 attempts');
     });
 
     it('should have retry behaviour nullified by user-specified abort controller', async () => {
