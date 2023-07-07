@@ -1,8 +1,9 @@
-import {defaults, isEmpty, isFunction, sum} from 'lodash-es';
+import {defaults, isEmpty, isFunction, isNil, sum} from 'lodash-es';
 import {fetch, Request} from '#src/api.native';
-import {isServerErrorCode} from '#src/httpCodes';
-import * as httpMethods from '#src/httpMethods';
-import * as mimeTypes from '#src/mimeTypes';
+import {toHeaders} from '#src/api.util';
+import {isServerErrorCode} from '#src/http-codes';
+import * as httpMethods from '#src/http-methods';
+import * as mimeTypes from '#src/mime-types';
 import {assign, countOf, defineProperties, ms, sleep} from '#src/util';
 
 export async function fetchEx(url, options) {
@@ -91,6 +92,17 @@ class FetchEx {
                     }),
                 };
 
+                if (! isNil(extension.json)) {
+                    fetchOpts.body ??= JSON.stringify(extension.json);
+                    fetchOpts.headers = toHeaders(fetchOpts.headers);
+
+                    for (const name of ['content-type', 'accept']) {
+                        if (! fetchOpts.headers.has(name)) {
+                            fetchOpts.headers.set(name, mimeTypes.json);
+                        }
+                    }
+                }
+
                 this.request = new Request(fetchURL, fetchOpts);
                 this.response = await fetch(this.request);
 
@@ -107,6 +119,12 @@ class FetchEx {
             }
 
             runs.push(defineProperties(run, {
+                ...(extension.debug && {
+                    request: {
+                        enumerable: true,
+                        value: this.request,
+                    },
+                }),
                 time: {
                     enumerable: true,
                     value: Date.now() - startTime,
@@ -201,6 +219,13 @@ class FetchEx {
     async #evaluate(run, error) {
 
         if (error) {
+            if (error instanceof TypeError) {
+                /*
+                 * May be thrown by misconfigured Request.
+                 * E.g. options with `body` and GET method.
+                 */
+                throw error;
+            }
             run.error = error;
         }
         else {

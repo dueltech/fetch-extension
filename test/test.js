@@ -2,7 +2,7 @@ import agentKeepAlive from 'agentkeepalive';
 import chai, {expect} from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import {isNil} from 'lodash-es';
-import {fetchEx, Response} from '../index.js';
+import {fetchEx, isHeaders, Response} from '../index.js';
 import testServer from './server.js';
 
 chai.use(chaiAsPromised);
@@ -229,6 +229,53 @@ describe('fetchEx()', () => {
                 sockets: {},
                 timeoutSocketCount: 0,
             });
+    });
+
+    it('should support extension.json', async () => {
+
+        const sourceData = {
+            foo: 1,
+        };
+
+        const url = context
+            .testRequestURL({
+                json: JSON.stringify(sourceData),
+            });
+
+        const request = () => fetchEx(url, {
+            method: 'POST',
+            extension: {
+                json: sourceData,
+                debug: true,
+            },
+        });
+
+        const response = await request();
+        const source = response.extension.stats.lastRun.request;
+
+        const requestHeaders = source.headers;
+
+        expect(isHeaders(requestHeaders))
+            .to.be.true;
+
+        expect(Object
+            .fromEntries(requestHeaders
+                .entries()))
+            .and.eql({
+                accept: 'application/json',
+                'content-type': 'application/json',
+            });
+
+        let requestBody = '';
+        for await (const chunk of source.body) {
+            requestBody += chunk;
+        }
+
+        expect(requestBody)
+            .to.eql(JSON.stringify(sourceData));
+
+        expect(await response.extension.body())
+            .to.eql(sourceData);
     });
 });
 

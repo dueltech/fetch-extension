@@ -8,7 +8,7 @@ Extension of [native fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fet
 
 ## `options.extension`
 
-* **`timeout` Number | String**
+* **`timeout` number | string**
 
   Request timeout
 
@@ -22,6 +22,19 @@ Extension of [native fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fet
   - **`delay` Number | String**
 
     Default: 100
+
+* **`json` any**
+
+  Shortcut for sending JSON serialized data. Equivalent to:
+  ```
+  {
+      headers: {
+          'content-type': 'application/json',
+          'accept':  'application/json',
+      },
+      body: JSON.stringify(value),
+  }
+  ```
 
 ## `response.extension`
 

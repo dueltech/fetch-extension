@@ -1,5 +1,5 @@
 import express from 'express';
-import * as mimeTypes from '#src/mimeTypes';
+import * as mimeTypes from '#src/mime-types';
 import {sleep} from '#src/util';
 
 const port = process.env.PORT || 8080;
@@ -21,7 +21,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get('/request', async (req, res) => {
+app.use('/request', async (req, res) => {
 
     const {status=200, text, json, delay} = req.query;
 
